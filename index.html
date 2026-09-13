@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Habit Tracker // Minimal</title>
+    <title>Habits // Tracker</title>
     <style>
         :root {
             --bg: #000000;
@@ -28,11 +28,13 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
+            width: 100vw;
+            overflow-x: hidden;
         }
 
         header {
             width: 100%;
-            max-width: 950px;
+            max-width: 1200px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -77,21 +79,24 @@
 
         .container {
             width: 100%;
-            max-width: 950px;
-            overflow-x: auto;
-            margin-bottom: 20px;
+            max-width: 1200px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            text-align: center;
+            table-layout: fixed; /* Força as colunas a dividirem o espaço igualmente */
         }
 
         th, td {
             border: 1px solid var(--border);
-            padding: 6px;
-            font-size: 0.8rem;
+            padding: 4px 0;
+            font-size: 0.75rem;
+            text-align: center;
+            height: 38px;
         }
 
         th {
@@ -100,16 +105,20 @@
             font-weight: 400;
         }
 
+        /* Coluna do nome do hábito ocupa mais espaço proporcional */
         th.habit-header, td.habit-name {
+            width: 220px;
             text-align: left;
             padding-left: 10px;
+            padding-right: 5px;
             white-space: nowrap;
-            width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         td.habit-name {
             color: var(--text);
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -130,8 +139,6 @@
 
         .checkbox-cell {
             cursor: pointer;
-            width: 30px;
-            height: 30px;
             transition: background 0.1s;
         }
 
@@ -145,9 +152,10 @@
 
         .panel {
             width: 100%;
-            max-width: 950px;
+            max-width: 1200px;
             display: flex;
             gap: 10px;
+            margin-top: 20px;
             margin-bottom: 10px;
         }
 
@@ -169,7 +177,7 @@
             font-size: 0.75rem;
             color: var(--text-muted);
             margin-top: 15px;
-            max-width: 950px;
+            max-width: 1200px;
             width: 100%;
             text-align: right;
         }
@@ -185,8 +193,8 @@
     <header>
         <h1>Habits // Tracker</h1>
         <div class="controls">
-            <span id="syncStatus" class="sync-status">Sincronizado</span>
-            <button onclick="syncWithCloud(true)">Atualizar</button>
+            <span id="syncStatus" class="sync-status">Pronto</span>
+            <button onclick="syncWithCloud(true)">Sincronizar</button>
             <button onclick="resetData()">Resetar</button>
         </div>
     </header>
@@ -215,16 +223,13 @@
 
     <script>
         const DAYS_IN_MONTH = 31;
-        
-        // Usamos o npoint.io como armazenamento gratuito de JSON na nuvem
-        // Se não houver ID configurado, ele usa o localStorage temporariamente.
         let cloudBinId = localStorage.getItem('arc_cloud_bin_id') || '';
         
         let habitsData = [
-            { id: 1, name: "Estudar / Focar", days: {} },
-            { id: 2, name: "Treinar", days: {} },
-            { id: 3, name: "Ler (30 mins)", days: {} },
-            { id: 4, name: "Meditar", days: {} }
+            { id: 1, name: "Treino", days: {} },
+            { id: 2, name: "Estudo", days: {} },
+            { id: 3, name: "Relaxar", days: {} },
+            { id: 4, name: "Sono 7h+", days: {} }
         ];
 
         async function init() {
@@ -335,7 +340,7 @@
         async function pushToCloud() {
             setSyncStatus("Salvando...");
             try {
-                await fetch(`https://api.npoint.io/${cloudBinId}`, {
+                let res = +await fetch(`https://api.npoint.io/${cloudBinId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(habitsData)
@@ -378,7 +383,7 @@
         async function configureBin() {
             let current = cloudBinId || '';
             let promptMsg = current ? 
-                "Seu ID atual da nuvem:\n" + current + "\n\nPara criar um novo espaço compartilhado, vá em npoint.io, crie um JSON vazio `[]`, salve e cole o ID gerado aqui:" :
+                "Seu ID atual da nuvem:\n" + current + "\n\nCole o ID da nuvem desejado:" :
                 "Para sincronizar na nuvem:\n1. Acesse https://www.npoint.io\n2. Cole `[]` na caixa de texto e clique em Save.\n3. Copie o ID da URL gerada e cole aqui:";
             
             let newId = prompt(promptMsg, current);
