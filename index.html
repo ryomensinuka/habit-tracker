@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Habit Tracker // Minimal</title>
+    <style>
+        :root {
+            --bg: #000000;
+            --surface: #0a0a0a;
+            --border: #222222;
+            --text: #ffffff;
+            --text-muted: #555555;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            width: 100%;
+            max-width: 950px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
+        }
+
+        h1 {
+            font-size: 1.1rem;
+            font-weight: 500;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        button, .sync-status {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            border-color: var(--text);
+            background: var(--surface);
+        }
+
+        .sync-status {
+            color: var(--text-muted);
+            border-color: transparent;
+            cursor: default;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 950px;
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 6px;
+            font-size: 0.8rem;
+        }
+
+        th {
+            background-color: var(--surface);
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        th.habit-header, td.habit-name {
+            text-align: left;
+            padding-left: 10px;
+            white-space: nowrap;
+            width: 180px;
+        }
+
+        td.habit-name {
+            color: var(--text);
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .delete-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.8rem;
+            padding: 0 4px;
+        }
+
+        .delete-btn:hover {
+            color: #ff4444;
+        }
+
+        .checkbox-cell {
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            transition: background 0.1s;
+        }
+
+        .checkbox-cell:hover {
+            background-color: #1a1a1a;
+        }
+
+        .checkbox-cell.checked {
+            background-color: #ffffff;
+        }
+
+        .panel {
+            width: 100%;
+            max-width: 950px;
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--text);
+        }
+
+        .config-box {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 15px;
+            max-width: 950px;
+            width: 100%;
+            text-align: right;
+        }
+
+        .config-box span {
+            cursor: pointer;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Habits // Tracker</h1>
+        <div class="controls">
+            <span id="syncStatus" class="sync-status">Sincronizado</span>
+            <button onclick="syncWithCloud(true)">Atualizar</button>
+            <button onclick="resetData()">Resetar</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <table id="habitTable">
+            <thead>
+                <tr id="headerRow">
+                    <th class="habit-header">Hábito</th>
+                </tr>
+            </thead>
+            <tbody id="habitBody">
+                <!-- Preenchido via JS -->
+            </tbody>
+        </table>
+    </div>
+
+    <div class="panel">
+        <input type="text" id="newHabitInput" placeholder="Novo hábito..." onkeypress="handleKeyPress(event)">
+        <button onclick="addHabit()">Adicionar</button>
+    </div>
+
+    <div class="config-box">
+        ID de Nuvem: <span id="binIdDisplay" onclick="configureBin()">configurar</span>
+    </div>
+
+    <script>
+        const DAYS_IN_MONTH = 31;
+        
+        // Usamos o npoint.io como armazenamento gratuito de JSON na nuvem
+        // Se não houver ID configurado, ele usa o localStorage temporariamente.
+        let cloudBinId = localStorage.getItem('arc_cloud_bin_id') || '';
+        
+        let habitsData = [
+            { id: 1, name: "Estudar / Focar", days: {} },
+            { id: 2, name: "Treinar", days: {} },
+            { id: 3, name: "Ler (30 mins)", days: {} },
+            { id: 4, name: "Meditar", days: {} }
+        ];
+
+        async function init() {
+            initTable();
+            if (cloudBinId) {
+                await syncWithCloud(false);
+            } else {
+                let local = localStorage.getItem('arc_habits_local');
+                if (local) habitsData = JSON.parse(local);
+                renderBody();
+            }
+        }
+
+        function initTable() {
+            const headerRow = document.getElementById('headerRow');
+            while (headerRow.children.length > 1) {
+                headerRow.removeChild(headerRow.lastChild);
+            }
+            for (let i = 1; i <= DAYS_IN_MONTH; i++) {
+                let th = document.createElement('th');
+                th.innerText = i;
+                headerRow.appendChild(th);
+            }
+        }
+
+        function renderBody() {
+            const tbody = document.getElementById('habitBody');
+            tbody.innerHTML = '';
+
+            habitsData.forEach((habit, habitIndex) => {
+                let tr = document.createElement('tr');
+
+                let tdName = document.createElement('td');
+                tdName.className = 'habit-name';
+                
+                let nameSpan = document.createElement('span');
+                nameSpan.innerText = habit.name;
+                tdName.appendChild(nameSpan);
+
+                let delBtn = document.createElement('button');
+                delBtn.className = 'delete-btn';
+                delBtn.innerText = '×';
+                delBtn.onclick = () => removeHabit(habitIndex);
+                tdName.appendChild(delBtn);
+
+                tr.appendChild(tdName);
+
+                for (let day = 1; day <= DAYS_IN_MONTH; day++) {
+                    let td = document.createElement('td');
+                    td.className = 'checkbox-cell';
+                    if (habit.days && habit.days[day]) {
+                        td.classList.add('checked');
+                    }
+                    td.onclick = () => toggleDay(habitIndex, day);
+                    tr.appendChild(td);
+                }
+
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('binIdDisplay').innerText = cloudBinId ? cloudBinId : 'clique para configurar nuvem';
+        }
+
+        function toggleDay(habitIndex, day) {
+            if (!habitsData[habitIndex].days) habitsData[habitIndex].days = {};
+            habitsData[habitIndex].days[day] = !habitsData[habitIndex].days[day];
+            saveAndSync();
+        }
+
+        function addHabit() {
+            const input = document.getElementById('newHabitInput');
+            const name = input.value.trim();
+            if(!name) return;
+
+            habitsData.push({
+                id: Date.now(),
+                name: name,
+                days: {}
+            });
+
+            input.value = '';
+            saveAndSync();
+        }
+
+        function removeHabit(index) {
+            if(confirm("Remover este hábito?")) {
+                habitsData.splice(index, 1);
+                saveAndSync();
+            }
+        }
+
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') addHabit();
+        }
+
+        function saveLocal() {
+            localStorage.setItem('arc_habits_local', JSON.stringify(habitsData));
+        }
+
+        async function saveAndSync() {
+            saveLocal();
+            renderBody();
+            if (cloudBinId) {
+                await pushToCloud();
+            }
+        }
+
+        async function pushToCloud() {
+            setSyncStatus("Salvando...");
+            try {
+                await fetch(`https://api.npoint.io/${cloudBinId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(habitsData)
+                });
+                setSyncStatus("Sincronizado");
+            } catch (e) {
+                setSyncStatus("Erro ao salvar");
+            }
+        }
+
+        async function syncWithCloud(showAlert = false) {
+            if (!cloudBinId) {
+                if(showAlert) alert("Configure o ID da nuvem primeiro clicando em 'configurar' no rodapé.");
+                return;
+            }
+            setSyncStatus("Carregando...");
+            try {
+                let res = await fetch(`https://api.npoint.io/${cloudBinId}`);
+                if (res.ok) {
+                    let data = await res.json();
+                    if (Array.isArray(data)) {
+                        habitsData = data;
+                        saveLocal();
+                        renderBody();
+                        setSyncStatus("Sincronizado");
+                        if(showAlert) alert("Dados atualizados da nuvem com sucesso!");
+                    }
+                } else {
+                    setSyncStatus("Erro na nuvem");
+                }
+            } catch (e) {
+                setSyncStatus("Offline / Erro");
+            }
+        }
+
+        function setSyncStatus(text) {
+            document.getElementById('syncStatus').innerText = text;
+        }
+
+        async function configureBin() {
+            let current = cloudBinId || '';
+            let promptMsg = current ? 
+                "Seu ID atual da nuvem:\n" + current + "\n\nPara criar um novo espaço compartilhado, vá em npoint.io, crie um JSON vazio `[]`, salve e cole o ID gerado aqui:" :
+                "Para sincronizar na nuvem:\n1. Acesse https://www.npoint.io\n2. Cole `[]` na caixa de texto e clique em Save.\n3. Copie o ID da URL gerada e cole aqui:";
+            
+            let newId = prompt(promptMsg, current);
+            if (newId !== null) {
+                cloudBinId = newId.trim();
+                localStorage.setItem('arc_cloud_bin_id', cloudBinId);
+                init();
+            }
+        }
+
+        function resetData() {
+            if(confirm("Deseja limpar todos os registros dos hábitos?")) {
+                habitsData.forEach(h => h.days = {});
+                saveAndSync();
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
