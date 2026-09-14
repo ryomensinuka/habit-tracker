@@ -134,7 +134,6 @@
         font-weight: 400;
     }
 
-    /* Divisor visual a cada 7 dias (Goal Gradient: blocos/semanas) */
     th.block-end, td.block-end {
         border-right: 2px solid var(--block);
     }
@@ -204,7 +203,6 @@
     .checkbox-cell:hover { border-color: #666; }
     .checkbox-cell.lvl-1 { background-color: var(--level-1); }
     .checkbox-cell.lvl-2 { background-color: var(--level-2); }
-    /* Efeito GitHub: variação de intensidade — superação gera recompensa visual */
     .checkbox-cell.lvl-3 {
         background-color: var(--level-3);
         box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15),
@@ -212,7 +210,6 @@
     }
     .checkbox-cell:focus-visible { outline: 1px solid var(--text); outline-offset: -2px; }
 
-    /* Hoje (Ghost do presente): outline pontilhado pulsante */
     .checkbox-cell.is-today {
         outline: 1px dashed #888888;
         outline-offset: -2px;
@@ -225,7 +222,6 @@
         100% { outline-color: #444444; }
     }
 
-    /* Amanhã (Ghost do próximo passo): pontilhado sutil, reserva o espaço */
     .checkbox-cell.is-tomorrow {
         outline: 1px dotted #4a6a5a;
         outline-offset: -2px;
@@ -278,10 +274,8 @@
     }
 
     .card .value { font-size: 1.8rem; font-weight: 300; }
-
     .card .hint { font-size: 0.75rem; color: var(--text-muted); }
 
-    /* Barra de progresso do bloco (Goal Gradient) */
     .block-bar {
         height: 6px;
         background: var(--bg);
@@ -321,7 +315,6 @@
 
     .stat-value { color: var(--text-muted); white-space: nowrap; }
 
-    /* ---------- Entrada ---------- */
     .panel { display: flex; gap: 10px; }
 
     input[type="text"] {
@@ -345,7 +338,6 @@
     .config-box span { cursor: pointer; text-decoration: underline; }
     .config-box span:hover { color: var(--text); }
 
-    /* ---------- Gancho de Curiosidade (micro-copy) ---------- */
     .hook {
         font-size: 0.82rem;
         color: var(--text-muted);
@@ -391,15 +383,12 @@
                     <th class="habit-header">Hábito</th>
                 </tr>
             </thead>
-            <tbody id="habitBody">
-                <!-- Preenchido via JS -->
-            </tbody>
+            <tbody id="habitBody"></tbody>
         </table>
     </div>
 
     <div class="panel">
-        <input type="text" id="newHabitInput" placeholder="Novo hábito..."
-               autocomplete="off" maxlength="60" aria-label="Nome do novo hábito">
+        <input type="text" id="newHabitInput" placeholder="Novo hábito..." autocomplete="off" maxlength="60" aria-label="Nome do novo hábito">
         <button type="button" id="btnAdd">Adicionar</button>
     </div>
 
@@ -425,13 +414,10 @@
 
         <div class="card">
             <h3>Consistência Individual</h3>
-            <ul class="stats-list" id="statsList">
-                <!-- Preenchido via JS -->
-            </ul>
+            <ul class="stats-list" id="statsList"></ul>
         </div>
     </div>
 
-    <!-- Gancho de Curiosidade: próxima ação obrigatória + micro-copy dinâmico -->
     <div class="hook" id="hookMessage">Carregando…</div>
 
     <div class="config-box">
@@ -443,17 +429,17 @@
 (function () {
     'use strict';
 
-    /* =========================================================
-       CONSTANTES DE TEMPO
-       ========================================================= */
     const NOW = new Date();
     const TODAY = NOW.getDate();
     const DAYS_IN_MONTH = new Date(NOW.getFullYear(), NOW.getMonth() + 1, 0).getDate();
 
     const LS_HABITS = 'arc_habits_local';
     const LS_BIN    = 'arc_cloud_bin_id';
+    const LS_KEY    = 'arc_cloud_api_key';
     const LS_SEEDED = 'arc_habits_seeded_v1';
-    const API_BASE  = 'https://api.npoint.io/';
+    
+    // API padrão configurada para JSONBin.io (suporta escrita e leitura via token)
+    const API_BASE  = 'https://api.jsonbin.io/v3/b/';
 
     const DEFAULT_HABITS = [
         { id: 'h1', name: 'Treino',   days: {} },
@@ -464,11 +450,9 @@
 
     const WEEKDAY_NAMES = ['domingos','segundas','terças','quartas','quintas','sextas','sábados'];
 
-    /* =========================================================
-       ESTADO
-       ========================================================= */
     let habitsData  = [];
     let cloudBinId  = '';
+    let cloudApiKey = '';
     const cellMap   = new Map();
     let pushTimer   = null;
     let isPushing   = false;
@@ -476,9 +460,6 @@
 
     const $ = (id) => document.getElementById(id);
 
-    /* =========================================================
-       UTILIDADES
-       ========================================================= */
     function uid() {
         return 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     }
@@ -491,13 +472,19 @@
     }
 
     function writeLS(key, value) {
-        try { localStorage.setItem(key, value); } catch (err) { /* silencioso */ }
+        try { localStorage.setItem(key, value); } catch (err) {}
     }
 
     function normalizeData(raw) {
-        if (!Array.isArray(raw)) return null;
+        let items = raw;
+        // Compatibilidade caso o JSONBin retorne encapsulado na propriedade "record"
+        if (raw && typeof raw === 'object' && raw.record) {
+            items = raw.record;
+        }
+        if (!Array.isArray(items)) return null;
+        
         const usedIds = new Set();
-        return raw.map((item) => {
+        return items.map((item) => {
             const src = (item && typeof item === 'object') ? item : {};
             let id = (src.id !== undefined && src.id !== null) ? String(src.id) : uid();
             while (usedIds.has(id)) id = uid();
@@ -508,7 +495,6 @@
                 for (const key of Object.keys(src.days)) {
                     const day = Number(key);
                     const val = Number(src.days[key]);
-                    // aceita níveis 1..3 (variabilidade visual)
                     if (Number.isInteger(day) && day >= 1 && day <= 31 && val >= 1 && val <= 3) {
                         days[day] = val;
                     }
@@ -522,29 +508,19 @@
         });
     }
 
-    /* =========================================================
-       ENDOWED PROGRESS EFFECT
-       Usuário nunca começa do zero: primeiros quadrados já vêm
-       preenchidos com "ações triviais já realizadas".
-       ========================================================= */
     function createStarterHabits() {
         const starter = normalizeData(DEFAULT_HABITS);
         if (!starter || starter.length === 0) return starter;
-
-        const seedDays = Math.max(1, Math.min(TODAY, 3)); // 1..3 dias pré-preenchidos
+        const seedDays = Math.max(1, Math.min(TODAY, 3));
         starter.forEach((habit, idx) => {
             const count = idx === 0 ? seedDays : 1;
             for (let d = 1; d <= count; d++) {
-                // Primeiro dia como "boas-vindas" (lvl-2), demais como meta mínima
                 habit.days[d] = d === 1 ? 2 : 1;
             }
         });
         return starter;
     }
 
-    /* =========================================================
-       CABEÇALHO (com blocos de 7 dias)
-       ========================================================= */
     function renderHeader() {
         const headerRow = $('headerRow');
         headerRow.textContent = '';
@@ -561,7 +537,6 @@
                 th.classList.add('today-header');
                 th.title = 'Hoje';
             }
-            // Goal Gradient: divisores visuais a cada 7 dias
             if (day % 7 === 0 && day < DAYS_IN_MONTH) {
                 th.classList.add('block-end');
             }
@@ -569,9 +544,6 @@
         }
     }
 
-    /* =========================================================
-       CORPO DA TABELA
-       ========================================================= */
     function renderBody() {
         const tbody = $('habitBody');
         tbody.textContent = '';
@@ -594,7 +566,6 @@
         for (const habit of habitsData) {
             const tr = document.createElement('tr');
 
-            /* --- Coluna do nome --- */
             const tdName = document.createElement('td');
             tdName.className = 'habit-name';
 
@@ -620,7 +591,6 @@
             tdName.appendChild(inner);
             tr.appendChild(tdName);
 
-            /* --- Dias --- */
             for (let day = 1; day <= DAYS_IN_MONTH; day++) {
                 const td = document.createElement('td');
                 td.className = 'checkbox-cell';
@@ -657,25 +627,13 @@
         td.classList.toggle('lvl-2', state === 2);
         td.classList.toggle('lvl-3', state === 3);
         td.classList.toggle('is-today', day === TODAY && state === 0);
-        // Ghost do Próximo Passo: amanhã pontilhado, reservando o espaço
-        td.classList.toggle('is-tomorrow',
-            day === TODAY + 1 && state === 0 && (TODAY + 1) <= DAYS_IN_MONTH);
+        td.classList.toggle('is-tomorrow', day === TODAY + 1 && state === 0 && (TODAY + 1) <= DAYS_IN_MONTH);
 
-        const labels = {
-            0: 'não marcado',
-            1: 'meta mínima',
-            2: 'meta máxima',
-            3: 'superação'
-        };
-        const status = labels[state] || labels[0];
-        td.setAttribute('aria-label', 'Dia ' + day + ': ' + status);
-        td.title = 'Dia ' + day + ' — ' + status +
-                   '\nClique para alternar · Botão direito limpa';
+        const labels = { 0: 'não marcado', 1: 'meta mínima', 2: 'meta máxima', 3: 'superação' };
+        td.setAttribute('aria-label', 'Dia ' + day + ': ' + (labels[state] || labels[0]));
+        td.title = 'Dia ' + day + ' — ' + (labels[state] || labels[0]) + '\nClique para alternar · Botão direito limpa';
     }
 
-    /* =========================================================
-       ALTERAÇÃO DE ESTADO (0 → 1 → 2 → 3 → 0)
-       ========================================================= */
     function findHabit(id) {
         return habitsData.find((h) => h.id === id) || null;
     }
@@ -690,7 +648,6 @@
     function setDayState(habitId, day, state) {
         const habit = findHabit(habitId);
         if (!habit) return;
-
         if (!habit.days) habit.days = {};
 
         if (state === 0) delete habit.days[day];
@@ -703,9 +660,6 @@
         persist();
     }
 
-    /* =========================================================
-       ADICIONAR / REMOVER
-       ========================================================= */
     function addHabit() {
         const input = $('newHabitInput');
         const name = input.value.trim().slice(0, 60);
@@ -738,9 +692,6 @@
         persist();
     }
 
-    /* =========================================================
-       BLOCOS (Goal Gradient Hypothesis)
-       ========================================================= */
     function getCurrentBlock() {
         const blockNum   = Math.floor((TODAY - 1) / 7) + 1;
         const blockStart = (blockNum - 1) * 7 + 1;
@@ -757,17 +708,9 @@
                 if (habit.days[day]) completed++;
             }
         }
-
-        return {
-            completed: completed,
-            total: total,
-            complete: total > 0 && completed === total
-        };
+        return { completed, total, complete: total > 0 && completed === total };
     }
 
-    /* =========================================================
-       ESTATÍSTICAS
-       ========================================================= */
     function updateStats() {
         let totalMarks  = 0;
         let bestOverall = 0;
@@ -788,33 +731,24 @@
 
             totalMarks += marks;
             if (best > bestOverall) bestOverall = best;
-            rows.push({ name: habit.name, marks: marks, best: best });
+            rows.push({ name: habit.name, marks, best });
         }
 
         const possible = habitsData.length * TODAY;
-        const percent  = possible > 0
-            ? Math.min(100, Math.round((totalMarks / possible) * 100))
-            : 0;
+        const percent  = possible > 0 ? Math.min(100, Math.round((totalMarks / possible) * 100)) : 0;
 
         $('overallProgress').textContent = percent + '%';
-        $('progressSub').textContent =
-            totalMarks + ' de ' + possible + ' marcas possíveis (até o dia ' + TODAY + ')';
-
+        $('progressSub').textContent = totalMarks + ' de ' + possible + ' marcas possíveis (até o dia ' + TODAY + ')';
         $('bestStreak').textContent = bestOverall + (bestOverall === 1 ? ' Dia' : ' Dias');
 
-        /* ----- Bloco atual ----- */
         const { blockNum, blockStart, blockEnd } = getCurrentBlock();
         $('blockProgress').textContent = 'Bloco ' + blockNum;
         $('blockSub').textContent = 'Dias ' + blockStart + '–' + blockEnd;
 
-        // Barra de progresso do bloco = % das marcações do bloco já concluídas
         const blockProgress = getBlockProgress(blockStart, blockEnd);
-        const blockPercent = blockProgress.total > 0
-            ? Math.round((blockProgress.completed / blockProgress.total) * 100)
-            : 0;
+        const blockPercent = blockProgress.total > 0 ? Math.round((blockProgress.completed / blockProgress.total) * 100) : 0;
         $('blockBar').style.width = blockPercent + '%';
 
-        /* ----- Consistência individual ----- */
         const list = $('statsList');
         list.textContent = '';
 
@@ -841,13 +775,9 @@
                 list.appendChild(li);
             }
         }
-
         updateHook();
     }
 
-    /* =========================================================
-       GANCHO DE CURIOSIDADE (micro-copy dinâmico)
-       ========================================================= */
     function getStrongestWeekday() {
         const counts = [0, 0, 0, 0, 0, 0, 0];
         for (const habit of habitsData) {
@@ -879,35 +809,22 @@
         const blockProgress = getBlockProgress(blockStart, blockEnd);
         const daysToBlockEnd = Math.max(0, blockEnd - TODAY);
 
-        // Uma meta concluída não deve continuar aparecendo como pendência.
         if (blockProgress.complete) {
-            el.innerHTML =
-                '<strong>Bloco ' + blockNum + ' fechado!</strong> Você concluiu todos os dias (' +
-                blockStart + '–' + blockEnd + ').';
+            el.innerHTML = '<strong>Bloco ' + blockNum + ' fechado!</strong> Você concluiu todos os dias (' + blockStart + '–' + blockEnd + ').';
             return;
         }
 
-        // 1) Urgência: hoje ainda incompleto
         if (remaining > 0) {
             el.classList.add('urgent');
-            el.innerHTML =
-                '<strong>' + remaining + '</strong> hábito' + (remaining > 1 ? 's' : '') +
-                ' ainda espera' + (remaining > 1 ? 'm' : '') +
-                ' sua atitude. Você decide.';
+            el.innerHTML = '<strong>' + remaining + '</strong> hábito' + (remaining > 1 ? 's' : '') + ' ainda espera' + (remaining > 1 ? 'm' : '') + ' sua atitude. Você decide.';
             return;
         }
 
-        // 2) Goal Gradient: perto do fim do bloco
         if (daysToBlockEnd >= 1 && daysToBlockEnd <= 2) {
-            el.innerHTML =
-               'Você está a <strong>' + daysToBlockEnd + ' dia' +
-               (daysToBlockEnd > 1 ? 's' : '') +
-                '</strong> de fechar o bloco (dias ' + blockStart + '–' + blockEnd +
-                '). A meta está logo ali - Mantenha.';
+            el.innerHTML = 'Você está a <strong>' + daysToBlockEnd + ' dia' + (daysToBlockEnd > 1 ? 's' : '') + '</strong> de fechar o bloco (dias ' + blockStart + '–' + blockEnd + '). A meta está logo ali - Mantenha.';
             return;
         }
 
-        // 3) Ofensiva em jogo
         let best = 0, bestName = '';
         for (const h of habitsData) {
             let run = 0, top = 0;
@@ -918,18 +835,13 @@
             if (top > best) { best = top; bestName = h.name; }
         }
         if (best >= 3) {
-            el.innerHTML =
-                'Sua maior ofensiva é de <strong>' + best + ' dias</strong> em "' +
-                escapeHtml(bestName) + '". Olhe o que você já conquistou.';
+            el.innerHTML = 'Sua maior ofensiva é de <strong>' + best + ' dias</strong> em "' + escapeHtml(bestName) + '". Olhe o que você já conquistou.';
             return;
         }
 
-        // 4) Insight comportamental
         const strongDay = getStrongestWeekday();
         if (strongDay) {
-            el.innerHTML =
-                'Seu padrão mostra que você rende mais nas <strong>' + strongDay +
-                '</strong>. Mantenha.';
+            el.innerHTML = 'Seu padrão mostra que você rende mais nas <strong>' + strongDay + '</strong>. Mantenha.';
             return;
         }
 
@@ -937,14 +849,9 @@
     }
 
     function escapeHtml(str) {
-        return String(str)
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    /* =========================================================
-       PERSISTÊNCIA + NUVEM
-       ========================================================= */
     function persist() {
         writeLS(LS_HABITS, JSON.stringify(habitsData));
         schedulePush();
@@ -958,22 +865,25 @@
     }
 
     function schedulePush() {
-        if (!cloudBinId) return;
+        if (!cloudBinId || !cloudApiKey) return;
         clearTimeout(pushTimer);
         pushTimer = setTimeout(pushToCloud, 700);
     }
 
     async function pushToCloud() {
-        if (!cloudBinId) return;
+        if (!cloudBinId || !cloudApiKey) return;
         if (isPushing) { pushQueued = true; return; }
 
         isPushing = true;
         setSyncStatus('Salvando...');
 
         try {
-            const res = await fetch(API_BASE + encodeURIComponent(cloudBinId), {
+            const res = await fetch(API_BASE + cloudBinId, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': cloudApiKey
+                },
                 body: JSON.stringify(habitsData)
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -990,9 +900,9 @@
     }
 
     async function syncWithCloud(showAlert) {
-        if (!cloudBinId) {
+        if (!cloudBinId || !cloudApiKey) {
             if (showAlert) {
-                alert("Configure o ID da nuvem primeiro clicando em 'configurar' no rodapé.");
+                alert("Configure o ID do Bin e a Master Key da nuvem primeiro clicando no rodapé.");
             }
             return false;
         }
@@ -1000,17 +910,14 @@
         setSyncStatus('Carregando...');
 
         try {
-            const res = await fetch(API_BASE + encodeURIComponent(cloudBinId), { cache: 'no-store' });
+            const res = await fetch(API_BASE + cloudBinId + '/latest', {
+                method: 'GET',
+                headers: { 'X-Master-Key': cloudApiKey },
+                cache: 'no-store'
+            });
             if (!res.ok) throw new Error('HTTP ' + res.status);
 
             const data = await res.json();
-
-            if (data === null || data === '') {
-                await pushToCloud();
-                if (showAlert) alert('A nuvem estava vazia: seus dados locais foram enviados.');
-                return true;
-            }
-
             const clean = normalizeData(data);
             if (!clean) throw new Error('formato inesperado');
 
@@ -1029,23 +936,28 @@
     }
 
     async function configureBin() {
-        const current = cloudBinId || '';
-        const msg = current
-            ? 'Seu ID atual da nuvem:\n' + current +
-              '\n\nCole o novo ID (ou deixe vazio para desativar a nuvem):'
-            : 'Para sincronizar na nuvem:\n' +
-              '1. Acesse https://www.npoint.io\n' +
-              '2. Digite somente "[]" na caixa de texto e clique para salvar seu bin.\n' +
-              '3. Copie o ID na URL gerada e cole aqui:';
-
-        const answer = prompt(msg, current);
-        if (answer === null) return;
-
-        cloudBinId = answer.trim();
+        const currentBin = cloudBinId || '';
+        const currentKey = cloudApiKey || '';
+        
+        const binInput = prompt('Cole o ID do seu Bin do JSONBin.io (ou deixe vazio para remover a nuvem):', currentBin);
+        if (binInput === null) return;
+        
+        cloudBinId = binInput.trim();
         writeLS(LS_BIN, cloudBinId);
-        updateBinDisplay();
 
         if (cloudBinId) {
+            const keyInput = prompt('Cole a sua Master Key do JSONBin.io:', currentKey);
+            if (keyInput === null) return;
+            cloudApiKey = keyInput.trim();
+            writeLS(LS_KEY, cloudApiKey);
+        } else {
+            cloudApiKey = '';
+            writeLS(LS_KEY, '');
+        }
+
+        updateBinDisplay();
+
+        if (cloudBinId && cloudApiKey) {
             await syncWithCloud(false);
         } else {
             setSyncStatus('Pronto');
@@ -1053,22 +965,17 @@
     }
 
     function updateBinDisplay() {
-        $('binIdDisplay').textContent = cloudBinId || 'clique para configurar nuvem';
+        $('binIdDisplay').textContent = (cloudBinId && cloudApiKey) ? 'Nuvem Conectada (' + cloudBinId.slice(0, 6) + '...)' : 'clique para configurar nuvem';
     }
 
-    /* =========================================================
-       INICIALIZAÇÃO
-       ========================================================= */
     async function init() {
         cloudBinId = String(readLS(LS_BIN, '') || '').trim();
+        cloudApiKey = String(readLS(LS_KEY, '') || '').trim();
 
-        $('monthLabel').textContent = NOW.toLocaleDateString('pt-BR', {
-            month: 'long', year: 'numeric'
-        });
+        $('monthLabel').textContent = NOW.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
         updateBinDisplay();
         renderHeader();
 
-        // 1) Dados locais
         let localData = null;
         const localRaw = readLS(LS_HABITS, null);
         if (localRaw) {
@@ -1076,8 +983,6 @@
             catch (err) { localData = null; }
         }
 
-        // 2) Fallback: Endowed Progress na primeira visita
-        //    (só acontece uma vez por dispositivo, via flag de "seeded")
         let seeded = false;
         if (!localData) {
             const alreadySeeded = readLS(LS_SEEDED, '0') === '1';
@@ -1095,8 +1000,7 @@
 
         renderBody();
 
-        // 3) Nuvem (se configurada) — sobrescreve o local se houver dados
-        if (cloudBinId) {
+        if (cloudBinId && cloudApiKey) {
             const ok = await syncWithCloud(false);
             if (!ok) setSyncStatus('Usando dados locais', 'error');
         } else if (seeded) {
