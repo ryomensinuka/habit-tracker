@@ -1,484 +1,1139 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Habits // Tracker</title>
-    <style>
-        :root {
-            --bg: #000000;
-            --surface: #0a0a0a;
-            --border: #222222;
-            --text: #ffffff;
-            --text-muted: #555555;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Habits // Tracker</title>
+<style>
+    :root {
+        --bg: #000000;
+        --surface: #0a0a0a;
+        --border: #18261e;
+        --text: #ffffff;
+        --text-muted: #555555;
+        --level-1: #1b382b; /* Meta Mínima */
+        --level-2: #2d6a4f; /* Meta Máxima */
+        --level-3: #52b788; /* Superação (brilho dopaminérgico) */
+        --block: #3a5a4a;   /* Divisor de bloco/semana */
+    }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
+    *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
 
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
+    body {
+        background-color: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        padding: 2vw;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+    }
 
-        .app-wrapper {
-            width: 100%;
-            max-width: 900px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
+    .app-wrapper {
+        width: 100%;
+        max-width: 1400px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
 
-        header {
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 15px;
-        }
+    header {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 15px;
+    }
 
-        h1 {
-            font-size: 1.1rem;
-            font-weight: 500;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
+    .brand { display: flex; flex-direction: column; gap: 3px; }
 
-        .controls {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
+    h1 {
+        font-size: 1.2rem;
+        font-weight: 500;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+    }
 
-        button, .sync-status {
-            background: transparent;
-            color: var(--text);
-            border: 1px solid var(--border);
-            padding: 6px 12px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
+    .month-label {
+        font-size: 0.68rem;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
 
-        button:hover {
-            border-color: var(--text);
-            background: var(--surface);
-        }
+    .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
 
-        .sync-status {
-            color: var(--text-muted);
-            border-color: transparent;
-            cursor: default;
-        }
+    button {
+        font: inherit;
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border);
+        padding: 8px 16px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: border-color .2s, background .2s;
+    }
 
-        /* Container da Tabela com Scroll lateral suave APENAS se necessário em telas muito pequenas */
-        .table-container {
-            width: 100%;
-            overflow-x: auto;
-            border: 1px solid var(--border);
-            background: var(--surface);
-        }
+    button:hover {
+        border-color: var(--text);
+        background: var(--surface);
+    }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 600px; /* Garante que os dias não fiquem microscopicamente finos */
-        }
+    .sync-status {
+        color: var(--text-muted);
+        border: 1px solid transparent;
+        padding: 8px 4px;
+        font-size: 0.75rem;
+        cursor: default;
+    }
+    .sync-status.ok    { color: var(--text); }
+    .sync-status.error { color: #ff5555; }
 
-        th, td {
-            border: 1px solid var(--border);
-            padding: 6px 4px;
-            font-size: 0.75rem;
-            text-align: center;
-        }
+    /* ---------- Tabela ---------- */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        -webkit-overflow-scrolling: touch;
+    }
 
-        th {
-            background-color: var(--bg);
-            color: var(--text-muted);
-            font-weight: 400;
-        }
+    table {
+        width: 100%;
+        min-width: 820px;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
 
-        th.habit-header, td.habit-name {
-            width: 180px;
-            text-align: left;
-            padding-left: 10px;
-            white-space: nowrap;
-        }
+    th, td {
+        border-right: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        padding: 6px 4px;
+        font-size: 0.8rem;
+        text-align: center;
+    }
+    th:last-child, td:last-child { border-right: none; }
+    tbody tr:last-child td { border-bottom: none; }
 
-        td.habit-name {
-            color: var(--text);
-            font-size: 0.85rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: var(--surface);
-        }
+    th {
+        background-color: var(--bg);
+        color: var(--text-muted);
+        font-weight: 400;
+    }
 
-        .delete-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 0.9rem;
-            padding: 0 6px;
-        }
+    /* Divisor visual a cada 7 dias (Goal Gradient: blocos/semanas) */
+    th.block-end, td.block-end {
+        border-right: 2px solid var(--block);
+    }
+    th.block-end { color: var(--text); }
 
-        .delete-btn:hover {
-            color: #ff4444;
-        }
+    th.today-header {
+        color: var(--text);
+        font-weight: 700;
+        box-shadow: inset 0 -2px 0 var(--text);
+    }
 
-        .checkbox-cell {
-            cursor: pointer;
-            width: 28px;
-            height: 32px;
-            transition: background 0.1s;
-        }
+    th.habit-header,
+    td.habit-name {
+        width: 200px;
+        min-width: 160px;
+        text-align: left;
+    }
 
-        .checkbox-cell:hover {
-            background-color: #1a1a1a;
-        }
+    th.habit-header {
+        position: sticky;
+        left: 0;
+        z-index: 3;
+        padding-left: 12px;
+        background: var(--bg);
+    }
+    td.habit-name {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        padding: 0;
+        background: var(--surface);
+    }
 
-        .checkbox-cell.checked {
-            background-color: #ffffff;
-        }
+    .habit-name-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 6px 6px 12px;
+    }
 
-        /* Painel inferior para ocupar espaço no PC com utilidade real */
-        .grid-info {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
+    .habit-label {
+        font-size: 0.9rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 
-        .card {
-            border: 1px solid var(--border);
-            background: var(--surface);
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
+    .delete-btn {
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 1rem;
+        line-height: 1;
+        padding: 2px 7px;
+        cursor: pointer;
+    }
+    .delete-btn:hover { color: #ff4444; background: transparent; border: none; }
 
-        .card h3 {
-            font-size: 0.85rem;
-            font-weight: 500;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
+    /* ---------- Células / níveis ---------- */
+    .checkbox-cell {
+        cursor: pointer;
+        height: 36px;
+        user-select: none;
+        transition: background .15s, border-color .15s, box-shadow .15s;
+    }
+    .checkbox-cell:hover { border-color: #666; }
+    .checkbox-cell.lvl-1 { background-color: var(--level-1); }
+    .checkbox-cell.lvl-2 { background-color: var(--level-2); }
+    /* Efeito GitHub: variação de intensidade — superação gera recompensa visual */
+    .checkbox-cell.lvl-3 {
+        background-color: var(--level-3);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15),
+                    0 0 6px rgba(82, 183, 136, 0.55);
+    }
+    .checkbox-cell:focus-visible { outline: 1px solid var(--text); outline-offset: -2px; }
 
-        .stats-list {
-            list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            font-size: 0.85rem;
-        }
+    /* Hoje (Ghost do presente): outline pontilhado pulsante */
+    .checkbox-cell.is-today {
+        outline: 1px dashed #888888;
+        outline-offset: -2px;
+        animation: pulse-ghost 2s infinite ease-in-out;
+    }
 
-        .stats-item {
-            display: flex;
-            justify-content: space-between;
-            color: var(--text);
-        }
+    @keyframes pulse-ghost {
+        0%   { outline-color: #444444; }
+        50%  { outline-color: #ffffff; }
+        100% { outline-color: #444444; }
+    }
 
-        .panel {
-            display: flex;
-            gap: 10px;
-        }
+    /* Amanhã (Ghost do próximo passo): pontilhado sutil, reserva o espaço */
+    .checkbox-cell.is-tomorrow {
+        outline: 1px dotted #4a6a5a;
+        outline-offset: -2px;
+        animation: pulse-tomorrow 3s infinite ease-in-out;
+    }
 
-        input[type="text"] {
-            flex: 1;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            color: var(--text);
-            padding: 8px 12px;
-            font-size: 0.85rem;
-            outline: none;
-        }
+    @keyframes pulse-tomorrow {
+        0%   { outline-color: #2a3a32; }
+        50%  { outline-color: #6b8f7f; }
+        100% { outline-color: #2a3a32; }
+    }
 
-        input[type="text"]:focus {
-            border-color: var(--text);
-        }
+    @media (prefers-reduced-motion: reduce) {
+        .checkbox-cell.is-today,
+        .checkbox-cell.is-tomorrow { animation: none; }
+        .checkbox-cell.is-today    { outline-color: #888; }
+        .checkbox-cell.is-tomorrow { outline-color: #4a6a5a; }
+    }
 
-        .config-box {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-align: right;
-            margin-top: -10px;
-        }
+    .empty-row {
+        padding: 20px;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        border-right: none;
+    }
 
-        .config-box span {
-            cursor: pointer;
-            text-decoration: underline;
-        }
+    /* ---------- Cards ---------- */
+    .grid-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
 
-        /* Responsividade para Celular */
-        @media (max-width: 768px) {
-            body {
-                padding: 10px;
-            }
-            .grid-info {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    .card {
+        border: 1px solid var(--border);
+        background: var(--surface);
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .card h3 {
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .card .value { font-size: 1.8rem; font-weight: 300; }
+
+    .card .hint { font-size: 0.75rem; color: var(--text-muted); }
+
+    /* Barra de progresso do bloco (Goal Gradient) */
+    .block-bar {
+        height: 6px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        overflow: hidden;
+        margin-top: 4px;
+    }
+    .block-bar > span {
+        display: block;
+        height: 100%;
+        background: var(--level-2);
+        transition: width .3s ease;
+    }
+
+    .stats-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 0.85rem;
+        max-height: 140px;
+        overflow-y: auto;
+    }
+
+    .stats-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        color: var(--text);
+    }
+
+    .stat-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .stat-value { color: var(--text-muted); white-space: nowrap; }
+
+    /* ---------- Entrada ---------- */
+    .panel { display: flex; gap: 10px; }
+
+    input[type="text"] {
+        flex: 1;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 10px 14px;
+        font-size: 0.9rem;
+        outline: none;
+        font-family: inherit;
+    }
+    input[type="text"]:focus { border-color: var(--text); }
+
+    .config-box {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-align: right;
+        word-break: break-all;
+    }
+    .config-box span { cursor: pointer; text-decoration: underline; }
+    .config-box span:hover { color: var(--text); }
+
+    /* ---------- Gancho de Curiosidade (micro-copy) ---------- */
+    .hook {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        text-align: center;
+        padding: 14px 18px;
+        border: 1px dashed var(--border);
+        background: linear-gradient(180deg, rgba(45,106,79,0.08), rgba(45,106,79,0.02));
+        letter-spacing: 0.3px;
+        line-height: 1.5;
+        transition: color .3s, border-color .3s;
+    }
+    .hook strong { color: var(--text); font-weight: 500; }
+    .hook.urgent {
+        color: var(--text);
+        border-color: var(--level-2);
+    }
+
+    @media (max-width: 900px) {
+        .grid-info { grid-template-columns: 1fr; }
+        .app-wrapper { gap: 16px; }
+    }
+</style>
 </head>
 <body>
 
-    <div class="app-wrapper">
-        <header>
+<div class="app-wrapper">
+    <header>
+        <div class="brand">
             <h1>Habits // Tracker</h1>
-            <div class="controls">
-                <span id="syncStatus" class="sync-status">Pronto</span>
-                <button onclick="syncWithCloud(true)">Sincronizar</button>
-                <button onclick="resetData()">Resetar</button>
-            </div>
-        </header>
+            <span class="month-label" id="monthLabel"></span>
+        </div>
+        <div class="controls">
+            <span id="syncStatus" class="sync-status">Pronto</span>
+            <button type="button" id="btnSync">Sincronizar</button>
+            <button type="button" id="btnReset">Resetar</button>
+        </div>
+    </header>
 
-        <!-- Tabela de Hábitos com scroll lateral controlado -->
-        <div class="table-container">
-            <table id="habitTable">
-                <thead>
-                    <tr id="headerRow">
-                        <th class="habit-header">Hábito</th>
-                    </tr>
-                </thead>
-                <tbody id="habitBody">
-                    <!-- Preenchido via JS -->
-                </tbody>
-            </table>
+    <div class="table-container">
+        <table id="habitTable">
+            <thead>
+                <tr id="headerRow">
+                    <th class="habit-header">Hábito</th>
+                </tr>
+            </thead>
+            <tbody id="habitBody">
+                <!-- Preenchido via JS -->
+            </tbody>
+        </table>
+    </div>
+
+    <div class="panel">
+        <input type="text" id="newHabitInput" placeholder="Novo hábito..."
+               autocomplete="off" maxlength="60" aria-label="Nome do novo hábito">
+        <button type="button" id="btnAdd">Adicionar</button>
+    </div>
+
+    <div class="grid-info">
+        <div class="card">
+            <h3>Progresso Geral</h3>
+            <div id="overallProgress" class="value">0%</div>
+            <div class="hint" id="progressSub">0 de 0 ações realizadas</div>
         </div>
 
-        <!-- Adicionar Hábito -->
-        <div class="panel">
-            <input type="text" id="newHabitInput" placeholder="Novo hábito..." onkeypress="handleKeyPress(event)">
-            <button onclick="addHabit()">Adicionar</button>
+        <div class="card">
+            <h3>Bloco Atual</h3>
+            <div id="blockProgress" class="value">Bloco 1</div>
+            <div class="hint" id="blockSub">Dias 1–7</div>
+            <div class="block-bar"><span id="blockBar" style="width:0%"></span></div>
         </div>
 
-        <!-- Cards inferiores para preencher o espaço do PC com utilidade -->
-        <div class="grid-info">
-            <div class="card">
-                <h3>Progresso Geral do Mês</h3>
-                <div id="overallProgress" style="font-size: 1.5rem; font-weight: 300; margin-top: 5px;">0%</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">Dias concluídos em relação ao total de hábitos.</div>
-            </div>
-            <div class="card">
-                <h3>Consistência</h3>
-                <ul class="stats-list" id="statsList">
-                    <!-- Preenchido via JS -->
-                </ul>
-            </div>
+        <div class="card">
+            <h3>Maior Ofensiva (Streak)</h3>
+            <div id="bestStreak" class="value">0 Dias</div>
+            <div class="hint">Dias consecutivos no hábito mais consistente</div>
         </div>
 
-        <div class="config-box">
-            ID de Nuvem: <span id="binIdDisplay" onclick="configureBin()">configurar</span>
+        <div class="card">
+            <h3>Consistência Individual</h3>
+            <ul class="stats-list" id="statsList">
+                <!-- Preenchido via JS -->
+            </ul>
         </div>
     </div>
 
-    <script>
-        const DAYS_IN_MONTH = 31;
-        let cloudBinId = localStorage.getItem('arc_cloud_bin_id') || '';
-        
-        let habitsData = [
-            { id: 1, name: "Treino", days: {} },
-            { id: 2, name: "Estudo", days: {} },
-            { id: 3, name: "Relaxar", days: {} },
-            { id: 4, name: "Sono 7h+", days: {} }
-        ];
+    <!-- Gancho de Curiosidade: próxima ação obrigatória + micro-copy dinâmico -->
+    <div class="hook" id="hookMessage">Carregando…</div>
 
-        async function init() {
-            initTable();
-            if (cloudBinId) {
-                await syncWithCloud(false);
-            } else {
-                let local = localStorage.getItem('arc_habits_local');
-                if (local) habitsData = JSON.parse(local);
-                renderBody();
-            }
-        }
+    <div class="config-box">
+        ID de Nuvem: <span id="binIdDisplay" role="button" tabindex="0">clique para configurar nuvem</span>
+    </div>
+</div>
 
-        function initTable() {
-            const headerRow = document.getElementById('headerRow');
-            while (headerRow.children.length > 1) {
-                headerRow.removeChild(headerRow.lastChild);
-            }
-            for (let i = 1; i <= DAYS_IN_MONTH; i++) {
-                let th = document.createElement('th');
-                th.innerText = i;
-                headerRow.appendChild(th);
-            }
-        }
+<script>
+(function () {
+    'use strict';
 
-        function renderBody() {
-            const tbody = document.getElementById('habitBody');
-            tbody.innerHTML = '';
+    /* =========================================================
+       CONSTANTES DE TEMPO
+       ========================================================= */
+    const NOW = new Date();
+    const TODAY = NOW.getDate();
+    const DAYS_IN_MONTH = new Date(NOW.getFullYear(), NOW.getMonth() + 1, 0).getDate();
 
-            let totalChecks = 0;
-            let possibleChecks = habitsData.length * DAYS_IN_MONTH;
-            let statsHTML = '';
+    const LS_HABITS = 'arc_habits_local';
+    const LS_BIN    = 'arc_cloud_bin_id';
+    const LS_SEEDED = 'arc_habits_seeded_v1';
+    const API_BASE  = 'https://api.npoint.io/';
 
-            habitsData.forEach((habit, habitIndex) => {
-                let tr = document.createElement('tr');
+    const DEFAULT_HABITS = [
+        { id: 'h1', name: 'Treino',   days: {} },
+        { id: 'h2', name: 'Estudo',   days: {} },
+        { id: 'h3', name: 'Relaxar',  days: {} },
+        { id: 'h4', name: 'Sono 7h+', days: {} }
+    ];
 
-                let tdName = document.createElement('td');
-                tdName.className = 'habit-name';
-                
-                let nameSpan = document.createElement('span');
-                nameSpan.innerText = habit.name;
-                tdName.appendChild(nameSpan);
+    const WEEKDAY_NAMES = ['domingos','segundas','terças','quartas','quintas','sextas','sábados'];
 
-                let delBtn = document.createElement('button');
-                delBtn.className = 'delete-btn';
-                delBtn.innerText = '×';
-                delBtn.onclick = () => removeHabit(habitIndex);
-                tdName.appendChild(delBtn);
+    /* =========================================================
+       ESTADO
+       ========================================================= */
+    let habitsData  = [];
+    let cloudBinId  = '';
+    const cellMap   = new Map();
+    let pushTimer   = null;
+    let isPushing   = false;
+    let pushQueued  = false;
 
-                tr.appendChild(tdName);
+    const $ = (id) => document.getElementById(id);
 
-                let habitCount = 0;
-                for (let day = 1; day <= DAYS_IN_MONTH; day++) {
-                    let td = document.createElement('td');
-                    td.className = 'checkbox-cell';
-                    if (habit.days && habit.days[day]) {
-                        td.classList.add('checked');
-                        habitCount++;
-                        totalChecks++;
+    /* =========================================================
+       UTILIDADES
+       ========================================================= */
+    function uid() {
+        return 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    }
+
+    function readLS(key, fallback) {
+        try {
+            const raw = localStorage.getItem(key);
+            return raw === null ? fallback : raw;
+        } catch (err) { return fallback; }
+    }
+
+    function writeLS(key, value) {
+        try { localStorage.setItem(key, value); } catch (err) { /* silencioso */ }
+    }
+
+    function normalizeData(raw) {
+        if (!Array.isArray(raw)) return null;
+        const usedIds = new Set();
+        return raw.map((item) => {
+            const src = (item && typeof item === 'object') ? item : {};
+            let id = (src.id !== undefined && src.id !== null) ? String(src.id) : uid();
+            while (usedIds.has(id)) id = uid();
+            usedIds.add(id);
+
+            const days = {};
+            if (src.days && typeof src.days === 'object') {
+                for (const key of Object.keys(src.days)) {
+                    const day = Number(key);
+                    const val = Number(src.days[key]);
+                    // aceita níveis 1..3 (variabilidade visual)
+                    if (Number.isInteger(day) && day >= 1 && day <= 31 && val >= 1 && val <= 3) {
+                        days[day] = val;
                     }
-                    td.onclick = () => toggleDay(habitIndex, day);
-                    tr.appendChild(td);
                 }
+            }
 
-                tbody.appendChild(tr);
+            const name = String(src.name === undefined || src.name === null ? '' : src.name)
+                .trim().slice(0, 60) || 'Sem nome';
 
-                statsHTML += `<li class="stats-item"><span>${habit.name}</span> <span>${habitCount} dias</span></li>`;
+            return { id, name, days };
+        });
+    }
+
+    /* =========================================================
+       ENDOWED PROGRESS EFFECT
+       Usuário nunca começa do zero: primeiros quadrados já vêm
+       preenchidos com "ações triviais já realizadas".
+       ========================================================= */
+    function createStarterHabits() {
+        const starter = normalizeData(DEFAULT_HABITS);
+        if (!starter || starter.length === 0) return starter;
+
+        const seedDays = Math.max(1, Math.min(TODAY, 3)); // 1..3 dias pré-preenchidos
+        starter.forEach((habit, idx) => {
+            const count = idx === 0 ? seedDays : 1;
+            for (let d = 1; d <= count; d++) {
+                // Primeiro dia como "boas-vindas" (lvl-2), demais como meta mínima
+                habit.days[d] = d === 1 ? 2 : 1;
+            }
+        });
+        return starter;
+    }
+
+    /* =========================================================
+       CABEÇALHO (com blocos de 7 dias)
+       ========================================================= */
+    function renderHeader() {
+        const headerRow = $('headerRow');
+        headerRow.textContent = '';
+
+        const thHabit = document.createElement('th');
+        thHabit.className = 'habit-header';
+        thHabit.textContent = 'Hábito';
+        headerRow.appendChild(thHabit);
+
+        for (let day = 1; day <= DAYS_IN_MONTH; day++) {
+            const th = document.createElement('th');
+            th.textContent = day;
+            if (day === TODAY) {
+                th.classList.add('today-header');
+                th.title = 'Hoje';
+            }
+            // Goal Gradient: divisores visuais a cada 7 dias
+            if (day % 7 === 0 && day < DAYS_IN_MONTH) {
+                th.classList.add('block-end');
+            }
+            headerRow.appendChild(th);
+        }
+    }
+
+    /* =========================================================
+       CORPO DA TABELA
+       ========================================================= */
+    function renderBody() {
+        const tbody = $('habitBody');
+        tbody.textContent = '';
+        cellMap.clear();
+
+        if (habitsData.length === 0) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.className = 'empty-row';
+            td.colSpan = DAYS_IN_MONTH + 1;
+            td.textContent = 'Nenhum hábito por aqui. Adicione um abaixo.';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            updateStats();
+            return;
+        }
+
+        const frag = document.createDocumentFragment();
+
+        for (const habit of habitsData) {
+            const tr = document.createElement('tr');
+
+            /* --- Coluna do nome --- */
+            const tdName = document.createElement('td');
+            tdName.className = 'habit-name';
+
+            const inner = document.createElement('div');
+            inner.className = 'habit-name-inner';
+
+            const label = document.createElement('span');
+            label.className = 'habit-label';
+            label.textContent = habit.name;
+            label.title = habit.name;
+
+            const del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'delete-btn';
+            del.textContent = '×';
+            del.setAttribute('aria-label', 'Remover hábito ' + habit.name);
+            del.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                removeHabit(habit.id);
             });
 
-            // Atualiza estatísticas inferiores
-            document.getElementById('statsList').innerHTML = statsHTML || '<li class="stats-item">Nenhum hábito cadastrado</li>';
-            let percent = possibleChecks > 0 ? Math.round((totalChecks / possibleChecks) * 100) : 0;
-            document.getElementById('overallProgress').innerText = percent + '%';
+            inner.append(label, del);
+            tdName.appendChild(inner);
+            tr.appendChild(tdName);
 
-            document.getElementById('binIdDisplay').innerText = cloudBinId ? cloudBinId : 'clique para configurar nuvem';
-        }
+            /* --- Dias --- */
+            for (let day = 1; day <= DAYS_IN_MONTH; day++) {
+                const td = document.createElement('td');
+                td.className = 'checkbox-cell';
+                td.tabIndex = 0;
+                td.setAttribute('role', 'button');
+                if (day % 7 === 0 && day < DAYS_IN_MONTH) td.classList.add('block-end');
+                paintCell(td, habit.days[day] || 0, day);
 
-        function toggleDay(habitIndex, day) {
-            if (!habitsData[habitIndex].days) habitsData[habitIndex].days = {};
-            habitsData[habitIndex].days[day] = !habitsData[habitIndex].days[day];
-            saveAndSync();
-        }
-
-        function addHabit() {
-            const input = document.getElementById('newHabitInput');
-            const name = input.value.trim();
-            if(!name) return;
-
-            habitsData.push({
-                id: Date.now(),
-                name: name,
-                days: {}
-            });
-
-            input.value = '';
-            saveAndSync();
-        }
-
-        function removeHabit(index) {
-            if(confirm("Remover este hábito?")) {
-                habitsData.splice(index, 1);
-                saveAndSync();
-            }
-        }
-
-        function handleKeyPress(e) {
-            if (e.key === 'Enter') addHabit();
-        }
-
-        function saveLocal() {
-            localStorage.setItem('arc_habits_local', JSON.stringify(habitsData));
-        }
-
-        async function saveAndSync() {
-            saveLocal();
-            renderBody();
-            if (cloudBinId) {
-                await pushToCloud();
-            }
-        }
-
-        async function pushToCloud() {
-            setSyncStatus("Salvando...");
-            try {
-                await fetch(`https://api.npoint.io/${cloudBinId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(habitsData)
+                td.addEventListener('click', () => cycleDayState(habit.id, day));
+                td.addEventListener('keydown', (ev) => {
+                    if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
+                        ev.preventDefault();
+                        cycleDayState(habit.id, day);
+                    }
                 });
-                setSyncStatus("Pronto");
-            } catch (e) {
-                setSyncStatus("Erro ao salvar");
+                td.addEventListener('contextmenu', (ev) => {
+                    ev.preventDefault();
+                    setDayState(habit.id, day, 0);
+                });
+
+                cellMap.set(habit.id + ':' + day, td);
+                tr.appendChild(td);
+            }
+
+            frag.appendChild(tr);
+        }
+
+        tbody.appendChild(frag);
+        updateStats();
+    }
+
+    function paintCell(td, state, day) {
+        td.classList.toggle('lvl-1', state === 1);
+        td.classList.toggle('lvl-2', state === 2);
+        td.classList.toggle('lvl-3', state === 3);
+        td.classList.toggle('is-today', day === TODAY && state === 0);
+        // Ghost do Próximo Passo: amanhã pontilhado, reservando o espaço
+        td.classList.toggle('is-tomorrow',
+            day === TODAY + 1 && state === 0 && (TODAY + 1) <= DAYS_IN_MONTH);
+
+        const labels = {
+            0: 'não marcado',
+            1: 'meta mínima',
+            2: 'meta máxima',
+            3: 'superação'
+        };
+        const status = labels[state] || labels[0];
+        td.setAttribute('aria-label', 'Dia ' + day + ': ' + status);
+        td.title = 'Dia ' + day + ' — ' + status +
+                   '\nClique para alternar · Botão direito limpa';
+    }
+
+    /* =========================================================
+       ALTERAÇÃO DE ESTADO (0 → 1 → 2 → 3 → 0)
+       ========================================================= */
+    function findHabit(id) {
+        return habitsData.find((h) => h.id === id) || null;
+    }
+
+    function cycleDayState(habitId, day) {
+        const habit = findHabit(habitId);
+        if (!habit) return;
+        const current = habit.days[day] || 0;
+        setDayState(habitId, day, (current + 1) % 4);
+    }
+
+    function setDayState(habitId, day, state) {
+        const habit = findHabit(habitId);
+        if (!habit) return;
+
+        if (!habit.days) habit.days = {};
+
+        if (state === 0) delete habit.days[day];
+        else habit.days[day] = state;
+
+        const td = cellMap.get(habitId + ':' + day);
+        if (td) paintCell(td, state, day);
+
+        updateStats();
+        persist();
+    }
+
+    /* =========================================================
+       ADICIONAR / REMOVER
+       ========================================================= */
+    function addHabit() {
+        const input = $('newHabitInput');
+        const name = input.value.trim().slice(0, 60);
+        if (!name) { input.focus(); return; }
+
+        habitsData.push({ id: uid(), name: name, days: {} });
+        input.value = '';
+        input.focus();
+
+        renderBody();
+        persist();
+    }
+
+    function removeHabit(habitId) {
+        const habit = findHabit(habitId);
+        if (!habit) return;
+        if (!confirm('Remover o hábito "' + habit.name + '"?')) return;
+
+        habitsData = habitsData.filter((h) => h.id !== habitId);
+        renderBody();
+        persist();
+    }
+
+    function resetData() {
+        if (habitsData.length === 0) return;
+        if (!confirm('Limpar todas as marcações do mês?')) return;
+
+        for (const habit of habitsData) habit.days = {};
+        renderBody();
+        persist();
+    }
+
+    /* =========================================================
+       BLOCOS (Goal Gradient Hypothesis)
+       ========================================================= */
+    function getCurrentBlock() {
+        const blockNum   = Math.floor((TODAY - 1) / 7) + 1;
+        const blockStart = (blockNum - 1) * 7 + 1;
+        const blockEnd   = Math.min(blockNum * 7, DAYS_IN_MONTH);
+        return { blockNum, blockStart, blockEnd };
+    }
+
+    function getBlockProgress(blockStart, blockEnd) {
+        const total = habitsData.length * (blockEnd - blockStart + 1);
+        let completed = 0;
+
+        for (const habit of habitsData) {
+            for (let day = blockStart; day <= blockEnd; day++) {
+                if (habit.days[day]) completed++;
             }
         }
 
-        async function syncWithCloud(showAlert = false) {
-            if (!cloudBinId) {
-                if(showAlert) alert("Configure o ID da nuvem primeiro clicando em 'configurar' no rodapé.");
-                return;
-            }
-            setSyncStatus("Carregando...");
-            try {
-                let res = await fetch(`https://api.npoint.io/${cloudBinId}`);
-                if (res.ok) {
-                    let data = await res.json();
-                    if (Array.isArray(data)) {
-                        habitsData = data;
-                        saveLocal();
-                        renderBody();
-                        setSyncStatus("Pronto");
-                        if(showAlert) alert("Dados atualizados da nuvem com sucesso!");
-                    }
+        return {
+            completed: completed,
+            total: total,
+            complete: total > 0 && completed === total
+        };
+    }
+
+    /* =========================================================
+       ESTATÍSTICAS
+       ========================================================= */
+    function updateStats() {
+        let totalMarks  = 0;
+        let bestOverall = 0;
+        const rows = [];
+
+        for (const habit of habitsData) {
+            let marks = 0, run = 0, best = 0;
+
+            for (let day = 1; day <= DAYS_IN_MONTH; day++) {
+                if (habit.days[day]) {
+                    marks++;
+                    run++;
+                    if (run > best) best = run;
                 } else {
-                    setSyncStatus("Erro na nuvem");
+                    run = 0;
                 }
-            } catch (e) {
-                setSyncStatus("Offline / Erro");
+            }
+
+            totalMarks += marks;
+            if (best > bestOverall) bestOverall = best;
+            rows.push({ name: habit.name, marks: marks, best: best });
+        }
+
+        const possible = habitsData.length * TODAY;
+        const percent  = possible > 0
+            ? Math.min(100, Math.round((totalMarks / possible) * 100))
+            : 0;
+
+        $('overallProgress').textContent = percent + '%';
+        $('progressSub').textContent =
+            totalMarks + ' de ' + possible + ' marcas possíveis (até o dia ' + TODAY + ')';
+
+        $('bestStreak').textContent = bestOverall + (bestOverall === 1 ? ' Dia' : ' Dias');
+
+        /* ----- Bloco atual ----- */
+        const { blockNum, blockStart, blockEnd } = getCurrentBlock();
+        $('blockProgress').textContent = 'Bloco ' + blockNum;
+        $('blockSub').textContent = 'Dias ' + blockStart + '–' + blockEnd;
+
+        // Barra de progresso do bloco = % das marcações do bloco já concluídas
+        const blockProgress = getBlockProgress(blockStart, blockEnd);
+        const blockPercent = blockProgress.total > 0
+            ? Math.round((blockProgress.completed / blockProgress.total) * 100)
+            : 0;
+        $('blockBar').style.width = blockPercent + '%';
+
+        /* ----- Consistência individual ----- */
+        const list = $('statsList');
+        list.textContent = '';
+
+        if (rows.length === 0) {
+            const li = document.createElement('li');
+            li.className = 'stats-item';
+            li.textContent = 'Nenhum hábito';
+            list.appendChild(li);
+        } else {
+            for (const row of rows) {
+                const li = document.createElement('li');
+                li.className = 'stats-item';
+
+                const nameEl = document.createElement('span');
+                nameEl.className = 'stat-name';
+                nameEl.textContent = row.name;
+                nameEl.title = row.name;
+
+                const valEl = document.createElement('span');
+                valEl.className = 'stat-value';
+                valEl.textContent = row.marks + 'd · seq. ' + row.best;
+
+                li.append(nameEl, valEl);
+                list.appendChild(li);
             }
         }
 
-        function setSyncStatus(text) {
-            document.getElementById('syncStatus').innerText = text;
-        }
+        updateHook();
+    }
 
-        async function configureBin() {
-            let current = cloudBinId || '';
-            let promptMsg = current ? 
-                "Seu ID atual da nuvem:\n" + current + "\n\nCole o ID da nuvem desejado:" :
-                "Para sincronizar na nuvem:\n1. Acesse https://www.npoint.io\n2. Cole `[]` na caixa de texto e clique em Save.\n3. Copie o ID da URL gerada e cole aqui:";
-            
-            let newId = prompt(promptMsg, current);
-            if (newId !== null) {
-                cloudBinId = newId.trim();
-                localStorage.setItem('arc_cloud_bin_id', cloudBinId);
-                init();
+    /* =========================================================
+       GANCHO DE CURIOSIDADE (micro-copy dinâmico)
+       ========================================================= */
+    function getStrongestWeekday() {
+        const counts = [0, 0, 0, 0, 0, 0, 0];
+        for (const habit of habitsData) {
+            for (const key of Object.keys(habit.days)) {
+                const day = Number(key);
+                const dow = new Date(NOW.getFullYear(), NOW.getMonth(), day).getDay();
+                counts[dow]++;
             }
         }
+        const max = Math.max.apply(null, counts);
+        if (max === 0) return null;
+        return WEEKDAY_NAMES[counts.indexOf(max)];
+    }
 
-        function resetData() {
-            if(confirm("Deseja limpar todos os registros dos hábitos?")) {
-                habitsData.forEach(h => h.days = {});
-                saveAndSync();
+    function updateHook() {
+        const el = $('hookMessage');
+        el.classList.remove('urgent');
+
+        if (habitsData.length === 0) {
+            el.innerHTML = 'Comece criando seu <strong>primeiro hábito</strong> abaixo e veja a grade ganhar vida.';
+            return;
+        }
+
+        const todayDone  = habitsData.filter(h => h.days[TODAY]).length;
+        const todayTotal = habitsData.length;
+        const remaining  = todayTotal - todayDone;
+
+        const { blockNum, blockStart, blockEnd } = getCurrentBlock();
+        const blockProgress = getBlockProgress(blockStart, blockEnd);
+        const daysToBlockEnd = Math.max(0, blockEnd - TODAY);
+
+        // Uma meta concluída não deve continuar aparecendo como pendência.
+        if (blockProgress.complete) {
+            el.innerHTML =
+                '<strong>Bloco ' + blockNum + ' fechado!</strong> Você concluiu todos os dias (' +
+                blockStart + '–' + blockEnd + ').';
+            return;
+        }
+
+        // 1) Urgência: hoje ainda incompleto
+        if (remaining > 0) {
+            el.classList.add('urgent');
+            el.innerHTML =
+                '<strong>' + remaining + '</strong> hábito' + (remaining > 1 ? 's' : '') +
+                ' ainda espera' + (remaining > 1 ? 'm' : '') +
+                ' sua atitude. Você decide.';
+            return;
+        }
+
+        // 2) Goal Gradient: perto do fim do bloco
+        if (daysToBlockEnd >= 1 && daysToBlockEnd <= 2) {
+            el.innerHTML =
+               'Você está a <strong>' + daysToBlockEnd + ' dia' +
+               (daysToBlockEnd > 1 ? 's' : '') +
+                '</strong> de fechar o bloco (dias ' + blockStart + '–' + blockEnd +
+                '). A meta está logo ali - Mantenha.';
+            return;
+        }
+
+        // 3) Ofensiva em jogo
+        let best = 0, bestName = '';
+        for (const h of habitsData) {
+            let run = 0, top = 0;
+            for (let d = 1; d <= DAYS_IN_MONTH; d++) {
+                if (h.days[d]) { run++; if (run > top) top = run; }
+                else run = 0;
+            }
+            if (top > best) { best = top; bestName = h.name; }
+        }
+        if (best >= 3) {
+            el.innerHTML =
+                'Sua maior ofensiva é de <strong>' + best + ' dias</strong> em "' +
+                escapeHtml(bestName) + '". Olhe o que você já conquistou.';
+            return;
+        }
+
+        // 4) Insight comportamental
+        const strongDay = getStrongestWeekday();
+        if (strongDay) {
+            el.innerHTML =
+                'Seu padrão mostra que você rende mais nas <strong>' + strongDay +
+                '</strong>. Mantenha.';
+            return;
+        }
+
+        el.innerHTML = 'Tudo certo por hoje. Continue.';
+    }
+
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    /* =========================================================
+       PERSISTÊNCIA + NUVEM
+       ========================================================= */
+    function persist() {
+        writeLS(LS_HABITS, JSON.stringify(habitsData));
+        schedulePush();
+    }
+
+    function setSyncStatus(text, kind) {
+        const el = $('syncStatus');
+        el.textContent = text;
+        el.classList.toggle('ok', kind === 'ok');
+        el.classList.toggle('error', kind === 'error');
+    }
+
+    function schedulePush() {
+        if (!cloudBinId) return;
+        clearTimeout(pushTimer);
+        pushTimer = setTimeout(pushToCloud, 700);
+    }
+
+    async function pushToCloud() {
+        if (!cloudBinId) return;
+        if (isPushing) { pushQueued = true; return; }
+
+        isPushing = true;
+        setSyncStatus('Salvando...');
+
+        try {
+            const res = await fetch(API_BASE + encodeURIComponent(cloudBinId), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(habitsData)
+            });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            setSyncStatus('Sincronizado', 'ok');
+        } catch (err) {
+            setSyncStatus('Erro ao salvar', 'error');
+        } finally {
+            isPushing = false;
+            if (pushQueued) {
+                pushQueued = false;
+                schedulePush();
             }
         }
+    }
+
+    async function syncWithCloud(showAlert) {
+        if (!cloudBinId) {
+            if (showAlert) {
+                alert("Configure o ID da nuvem primeiro clicando em 'configurar' no rodapé.");
+            }
+            return false;
+        }
+
+        setSyncStatus('Carregando...');
+
+        try {
+            const res = await fetch(API_BASE + encodeURIComponent(cloudBinId), { cache: 'no-store' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+
+            const data = await res.json();
+
+            if (data === null || data === '') {
+                await pushToCloud();
+                if (showAlert) alert('A nuvem estava vazia: seus dados locais foram enviados.');
+                return true;
+            }
+
+            const clean = normalizeData(data);
+            if (!clean) throw new Error('formato inesperado');
+
+            habitsData = clean;
+            writeLS(LS_HABITS, JSON.stringify(habitsData));
+            renderBody();
+            setSyncStatus('Sincronizado', 'ok');
+            if (showAlert) alert('Dados sincronizados com a nuvem!');
+            return true;
+
+        } catch (err) {
+            setSyncStatus('Offline / erro', 'error');
+            if (showAlert) alert('Não foi possível sincronizar: ' + err.message);
+            return false;
+        }
+    }
+
+    async function configureBin() {
+        const current = cloudBinId || '';
+        const msg = current
+            ? 'Seu ID atual da nuvem:\n' + current +
+              '\n\nCole o novo ID (ou deixe vazio para desativar a nuvem):'
+            : 'Para sincronizar na nuvem:\n' +
+              '1. Acesse https://www.npoint.io\n' +
+              '2. Digite somente "[]" na caixa de texto e clique para salvar seu bin.\n' +
+              '3. Copie o ID na URL gerada e cole aqui:';
+
+        const answer = prompt(msg, current);
+        if (answer === null) return;
+
+        cloudBinId = answer.trim();
+        writeLS(LS_BIN, cloudBinId);
+        updateBinDisplay();
+
+        if (cloudBinId) {
+            await syncWithCloud(false);
+        } else {
+            setSyncStatus('Pronto');
+        }
+    }
+
+    function updateBinDisplay() {
+        $('binIdDisplay').textContent = cloudBinId || 'clique para configurar nuvem';
+    }
+
+    /* =========================================================
+       INICIALIZAÇÃO
+       ========================================================= */
+    async function init() {
+        cloudBinId = String(readLS(LS_BIN, '') || '').trim();
+
+        $('monthLabel').textContent = NOW.toLocaleDateString('pt-BR', {
+            month: 'long', year: 'numeric'
+        });
+        updateBinDisplay();
+        renderHeader();
+
+        // 1) Dados locais
+        let localData = null;
+        const localRaw = readLS(LS_HABITS, null);
+        if (localRaw) {
+            try { localData = normalizeData(JSON.parse(localRaw)); }
+            catch (err) { localData = null; }
+        }
+
+        // 2) Fallback: Endowed Progress na primeira visita
+        //    (só acontece uma vez por dispositivo, via flag de "seeded")
+        let seeded = false;
+        if (!localData) {
+            const alreadySeeded = readLS(LS_SEEDED, '0') === '1';
+            if (!alreadySeeded && !cloudBinId) {
+                habitsData = createStarterHabits() || [];
+                writeLS(LS_SEEDED, '1');
+                writeLS(LS_HABITS, JSON.stringify(habitsData));
+                seeded = true;
+            } else {
+                habitsData = normalizeData(DEFAULT_HABITS) || [];
+            }
+        } else {
+            habitsData = localData;
+        }
+
+        renderBody();
+
+        // 3) Nuvem (se configurada) — sobrescreve o local se houver dados
+        if (cloudBinId) {
+            const ok = await syncWithCloud(false);
+            if (!ok) setSyncStatus('Usando dados locais', 'error');
+        } else if (seeded) {
+            setSyncStatus('Progresso inicial', 'ok');
+        }
+    }
+
+    function boot() {
+        $('btnSync').addEventListener('click', () => syncWithCloud(true));
+        $('btnReset').addEventListener('click', resetData);
+        $('btnAdd').addEventListener('click', addHabit);
+
+        $('newHabitInput').addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                addHabit();
+            }
+        });
+
+        const binEl = $('binIdDisplay');
+        binEl.addEventListener('click', configureBin);
+        binEl.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault();
+                configureBin();
+            }
+        });
 
         init();
-    </script>
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+})();
+</script>
 </body>
 </html>
