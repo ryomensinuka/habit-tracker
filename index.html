@@ -28,17 +28,21 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            width: 100vw;
-            overflow-x: hidden;
+        }
+
+        .app-wrapper {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
 
         header {
             width: 100%;
-            max-width: 1200px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
             border-bottom: 1px solid var(--border);
             padding-bottom: 15px;
         }
@@ -77,51 +81,47 @@
             cursor: default;
         }
 
-        .container {
+        /* Container da Tabela com Scroll lateral suave APENAS se necessário em telas muito pequenas */
+        .table-container {
             width: 100%;
-            max-width: 1200px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            background: var(--surface);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            table-layout: fixed; /* Força as colunas a dividirem o espaço igualmente */
+            min-width: 600px; /* Garante que os dias não fiquem microscopicamente finos */
         }
 
         th, td {
             border: 1px solid var(--border);
-            padding: 4px 0;
+            padding: 6px 4px;
             font-size: 0.75rem;
             text-align: center;
-            height: 38px;
         }
 
         th {
-            background-color: var(--surface);
+            background-color: var(--bg);
             color: var(--text-muted);
             font-weight: 400;
         }
 
-        /* Coluna do nome do hábito ocupa mais espaço proporcional */
         th.habit-header, td.habit-name {
-            width: 220px;
+            width: 180px;
             text-align: left;
             padding-left: 10px;
-            padding-right: 5px;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
         td.habit-name {
             color: var(--text);
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background: var(--surface);
         }
 
         .delete-btn {
@@ -129,8 +129,8 @@
             border: none;
             color: var(--text-muted);
             cursor: pointer;
-            font-size: 0.8rem;
-            padding: 0 4px;
+            font-size: 0.9rem;
+            padding: 0 6px;
         }
 
         .delete-btn:hover {
@@ -139,6 +139,8 @@
 
         .checkbox-cell {
             cursor: pointer;
+            width: 28px;
+            height: 32px;
             transition: background 0.1s;
         }
 
@@ -150,13 +152,47 @@
             background-color: #ffffff;
         }
 
+        /* Painel inferior para ocupar espaço no PC com utilidade real */
+        .grid-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .card {
+            border: 1px solid var(--border);
+            background: var(--surface);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .card h3 {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stats-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 0.85rem;
+        }
+
+        .stats-item {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text);
+        }
+
         .panel {
-            width: 100%;
-            max-width: 1200px;
             display: flex;
             gap: 10px;
-            margin-top: 20px;
-            margin-bottom: 10px;
         }
 
         input[type="text"] {
@@ -176,49 +212,76 @@
         .config-box {
             font-size: 0.75rem;
             color: var(--text-muted);
-            margin-top: 15px;
-            max-width: 1200px;
-            width: 100%;
             text-align: right;
+            margin-top: -10px;
         }
 
         .config-box span {
             cursor: pointer;
             text-decoration: underline;
         }
+
+        /* Responsividade para Celular */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .grid-info {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
 
-    <header>
-        <h1>Habits // Tracker</h1>
-        <div class="controls">
-            <span id="syncStatus" class="sync-status">Pronto</span>
-            <button onclick="syncWithCloud(true)">Sincronizar</button>
-            <button onclick="resetData()">Resetar</button>
+    <div class="app-wrapper">
+        <header>
+            <h1>Habits // Tracker</h1>
+            <div class="controls">
+                <span id="syncStatus" class="sync-status">Pronto</span>
+                <button onclick="syncWithCloud(true)">Sincronizar</button>
+                <button onclick="resetData()">Resetar</button>
+            </div>
+        </header>
+
+        <!-- Tabela de Hábitos com scroll lateral controlado -->
+        <div class="table-container">
+            <table id="habitTable">
+                <thead>
+                    <tr id="headerRow">
+                        <th class="habit-header">Hábito</th>
+                    </tr>
+                </thead>
+                <tbody id="habitBody">
+                    <!-- Preenchido via JS -->
+                </tbody>
+            </table>
         </div>
-    </header>
 
-    <div class="container">
-        <table id="habitTable">
-            <thead>
-                <tr id="headerRow">
-                    <th class="habit-header">Hábito</th>
-                </tr>
-            </thead>
-            <tbody id="habitBody">
-                <!-- Preenchido via JS -->
-            </tbody>
-        </table>
-    </div>
+        <!-- Adicionar Hábito -->
+        <div class="panel">
+            <input type="text" id="newHabitInput" placeholder="Novo hábito..." onkeypress="handleKeyPress(event)">
+            <button onclick="addHabit()">Adicionar</button>
+        </div>
 
-    <div class="panel">
-        <input type="text" id="newHabitInput" placeholder="Novo hábito..." onkeypress="handleKeyPress(event)">
-        <button onclick="addHabit()">Adicionar</button>
-    </div>
+        <!-- Cards inferiores para preencher o espaço do PC com utilidade -->
+        <div class="grid-info">
+            <div class="card">
+                <h3>Progresso Geral do Mês</h3>
+                <div id="overallProgress" style="font-size: 1.5rem; font-weight: 300; margin-top: 5px;">0%</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Dias concluídos em relação ao total de hábitos.</div>
+            </div>
+            <div class="card">
+                <h3>Consistência</h3>
+                <ul class="stats-list" id="statsList">
+                    <!-- Preenchido via JS -->
+                </ul>
+            </div>
+        </div>
 
-    <div class="config-box">
-        ID de Nuvem: <span id="binIdDisplay" onclick="configureBin()">configurar</span>
+        <div class="config-box">
+            ID de Nuvem: <span id="binIdDisplay" onclick="configureBin()">configurar</span>
+        </div>
     </div>
 
     <script>
@@ -259,6 +322,10 @@
             const tbody = document.getElementById('habitBody');
             tbody.innerHTML = '';
 
+            let totalChecks = 0;
+            let possibleChecks = habitsData.length * DAYS_IN_MONTH;
+            let statsHTML = '';
+
             habitsData.forEach((habit, habitIndex) => {
                 let tr = document.createElement('tr');
 
@@ -277,18 +344,28 @@
 
                 tr.appendChild(tdName);
 
+                let habitCount = 0;
                 for (let day = 1; day <= DAYS_IN_MONTH; day++) {
                     let td = document.createElement('td');
                     td.className = 'checkbox-cell';
                     if (habit.days && habit.days[day]) {
                         td.classList.add('checked');
+                        habitCount++;
+                        totalChecks++;
                     }
                     td.onclick = () => toggleDay(habitIndex, day);
                     tr.appendChild(td);
                 }
 
                 tbody.appendChild(tr);
+
+                statsHTML += `<li class="stats-item"><span>${habit.name}</span> <span>${habitCount} dias</span></li>`;
             });
+
+            // Atualiza estatísticas inferiores
+            document.getElementById('statsList').innerHTML = statsHTML || '<li class="stats-item">Nenhum hábito cadastrado</li>';
+            let percent = possibleChecks > 0 ? Math.round((totalChecks / possibleChecks) * 100) : 0;
+            document.getElementById('overallProgress').innerText = percent + '%';
 
             document.getElementById('binIdDisplay').innerText = cloudBinId ? cloudBinId : 'clique para configurar nuvem';
         }
@@ -340,12 +417,12 @@
         async function pushToCloud() {
             setSyncStatus("Salvando...");
             try {
-                let res = +await fetch(`https://api.npoint.io/${cloudBinId}`, {
+                await fetch(`https://api.npoint.io/${cloudBinId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(habitsData)
                 });
-                setSyncStatus("Sincronizado");
+                setSyncStatus("Pronto");
             } catch (e) {
                 setSyncStatus("Erro ao salvar");
             }
@@ -365,7 +442,7 @@
                         habitsData = data;
                         saveLocal();
                         renderBody();
-                        setSyncStatus("Sincronizado");
+                        setSyncStatus("Pronto");
                         if(showAlert) alert("Dados atualizados da nuvem com sucesso!");
                     }
                 } else {
